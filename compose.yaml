@@ -1,0 +1,57 @@
+include:
+  - proxy.yaml
+
+x-deploy: &deploy-dev
+  deploy:
+    resources:
+      limits:
+        cpus: "1"
+        memory: 512M
+      reservations:
+        memory: 256M
+x-env_file: &env_file
+  env_file:
+    - .env
+x-restart: &restart
+  restart: always #no, on-failure , always(default), unless-stopped
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    image: shvirtd-example:latest
+    <<: [*deploy-dev, *env_file, *restart]
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      DB_NAME: ${MYSQL_DATABASE}
+    ports:
+      - "5000:5000"
+    networks:
+      backend:
+        ipv4_address: 172.20.0.5
+    depends_on:
+      - db
+
+  db:
+#    image: mysql:8
+    image: mariadb:10.6.4-focal
+    <<: [*deploy-dev, *env_file, *restart]
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_ROOT_HOST: "%"
+    networks:
+      backend:
+        ipv4_address: 172.20.0.10
+
+networks:
+  backend:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
